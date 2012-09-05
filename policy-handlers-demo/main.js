@@ -1,15 +1,9 @@
-require.config({/*
-  handlers: {
-    'greeter': function () { return {
-      greet: function (m) { console.log(m); }
-    } }
-  }*/
+require.config({
   handlers: {
     'greeter': 'greeter'
   }
 });
 
-define(['greeter', 'require'], function (greeter, require) {
+define(['greeter', 'otherModule'], function (greeter) {
   greeter.greet('hello!');
-  r = require;
 });
