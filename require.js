@@ -575,6 +575,10 @@ var requirejs, require, define;
             return modRequire;
         }
 
+        function makeHandler(mod, handlerPlugin) {
+            return handlerPlugin.handle(mod, makeRequire(mod), config);
+        }
+
         handlers = {
             'require': function (mod) {
                 return makeRequire(mod);
@@ -1157,7 +1161,7 @@ var requirejs, require, define;
 
                 //Enable each dependency
                 each(this.depMaps, bind(this, function (depMap, i) {
-                    var id, mod, handler;
+                    var id, mod, handler, handlerPlugin = false;
 
                     if (typeof depMap === 'string') {
                         //Dependency needs to be converted to a depMap
@@ -1168,17 +1172,28 @@ var requirejs, require, define;
                                                !this.depMaps.rjsSkipMap);
                         this.depMaps[i] = depMap;
 
+
+
                         handler = handlers[depMap.id];
 
                         if (handler) {
-                            this.depExports[i] = handler(this);
-                            return;
+                            if (typeof handler === 'function') {
+                                this.depExports[i] = handler(this);
+                                return;
+                            } else {
+                                handlerPlugin = true;
+                            }
                         }
 
                         this.depCount += 1;
 
                         on(depMap, 'defined', bind(this, function (depExports) {
-                            this.defineDep(i, depExports);
+                            if (handlerPlugin) {
+                                this.defineDep(i, makeHandler(this, depExports));
+                            } else {
+                                this.defineDep(i, depExports);
+                            }
+
                             this.check();
                         }));
 
@@ -1193,7 +1208,7 @@ var requirejs, require, define;
                     //Skip special modules like 'require', 'exports', 'module'
                     //Also, don't call enable if it is already enabled,
                     //important in circular dependency cases.
-                    if (!handlers[id] && mod && !mod.enabled) {
+                    if (!(handlers[id] && !handlerPlugin) && mod && !mod.enabled) {
                         context.enable(depMap, this);
                     }
                 }));
@@ -1283,6 +1298,7 @@ var requirejs, require, define;
             waitCount: 0,
             defQueue: defQueue,
             Module: Module,
+            makeHandler: makeHandler,
             makeModuleMap: makeModuleMap,
 
             /**
@@ -1379,6 +1395,10 @@ var requirejs, require, define;
                 if (cfg.deps || cfg.callback) {
                     context.require(cfg.deps || [], cfg.callback);
                 }
+
+                // copy over handlers
+                mixin(handlers, cfg.handlers, false);
+
             },
 
             makeShimExports: function (exports) {
